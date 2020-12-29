@@ -24,9 +24,8 @@ def form_message():
 
     messages = []
     for index, q in enumerate(questions, 1):
-        message = f'{index}) title: {q["title"]}\n'
-        message += f'score: {q["score"]}\n'
-        message += f'link: {q["link"]}\n'
+        message = f'{index}) голосов за вопрос: {q["score"]}\n'
+        message += f'{q["link"]}\n'
         messages.append(message)
 
     return messages
