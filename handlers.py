@@ -1,18 +1,41 @@
 from aiogram import types
 from aiogram.dispatcher import FSMContext
 
-from states import MainForm
+from states import Form
 from bot import dp
 
 from stackoverflowAPI import form_message
+from keyboards import stack_keyboard, sort_keyboard, get_question_keyboard
 
-button = types.KeyboardButton('Получить вопросы')
 
-
-@dp.message_handler(content_types=types.ContentTypes.TEXT)
+@dp.message_handler(state='*', commands='start')
 async def handler(message: types.Message):
-    await MainForm.nextQuestion.set()
-    await message.answer('сколько вопросов хотите получить?', reply_markup=types.ReplyKeyboardRemove())
+    await Form.choosing_stack.set()
+    await message.answer('русский или английский stack?', reply_markup=stack_keyboard)
+
+
+@dp.message_handler(state=Form.choosing_stack,
+                    content_types=types.ContentTypes.TEXT)
+async def handler(message: types.Message, state: FSMContext):
+    await Form.choosing_sort.set()
+    await state.update_data(stack=message.text)
+    await message.answer('выберите как отсортировать вопросы', reply_markup=sort_keyboard)
+
+
+@dp.message_handler(state=Form.choosing_sort,
+                    content_types=types.ContentTypes.TEXT)
+async def handler(message: types.Message, state: FSMContext):
+    await Form.choosing_tagged.set()
+    await state.update_data(sort_type=message.text)
+    await message.answer('выберите теги через следующий разделитель: \';\'', reply_markup=types.ReplyKeyboardRemove())
+
+
+@dp.message_handler(state=Form.choosing_tagged,
+                    content_types=types.ContentTypes.TEXT)
+async def handler(message: types.Message, state: FSMContext):
+    await Form.get_questions.set()
+    await state.update_data(tags=message.text)
+    await message.answer('выберите число вопросов')
 
 
 def is_positive_number(msg):
@@ -23,16 +46,42 @@ def is_positive_number(msg):
     return False
 
 
-@dp.message_handler(lambda message: not is_positive_number(message), state=MainForm.nextQuestion,
+@dp.message_handler(lambda message: not is_positive_number(message), state=Form.get_questions,
                     content_types=types.ContentTypes.TEXT)
 async def handler(message: types.Message):
     await message.reply('необходимо положительное число')
 
 
-@dp.message_handler(lambda message: is_positive_number(message), state=MainForm.nextQuestion,
+@dp.message_handler(lambda message: is_positive_number(message), state=Form.get_questions,
                     content_types=types.ContentTypes.TEXT)
-async def handler(message: types.Message):
+async def handler(message: types.Message, state: FSMContext):
+    await Form.get_questions_with_same_parameters.set()
     questions_count = int(message.text)
-    messages = form_message()[:questions_count]
+    await state.update_data(questions_count=questions_count)
+
+    user_data = await state.get_data()
+    stack = user_data['stack']
+    sort_type = user_data['sort_type']
+    tags = user_data['tags']
+
+    messages = form_message(stack, sort_type, tags)[:questions_count]
     for msg in messages:
         await message.answer(msg)
+    await message.answer('получить вопросы с теми же параметрами?', reply_markup=get_question_keyboard)
+
+
+@dp.message_handler(state=Form.get_questions_with_same_parameters,
+                    content_types=types.ContentTypes.TEXT)
+async def handler(message: types.Message, state: FSMContext):
+    user_data = await state.get_data()
+    questions_count = int(user_data['questions_count'])
+
+    user_data = await state.get_data()
+    stack = user_data['stack']
+    sort_type = user_data['sort_type']
+    tags = user_data['tags']
+
+    messages = form_message(stack, sort_type, tags)[:questions_count]
+    for msg in messages:
+        await message.answer(msg)
+    await message.answer('получить вопросы с теми же параметрами?', reply_markup=get_question_keyboard)

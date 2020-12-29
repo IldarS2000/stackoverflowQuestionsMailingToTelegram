@@ -3,17 +3,15 @@ import json
 import requests
 
 
-def form_message():
+def form_message(stack, sort_type, tags):
     query = 'https://api.stackexchange.com/2.2/questions?page=1'
 
     valid_order_arguments = ['desc', 'asc']
     valid_sort_arguments = ['activity', 'votes', 'creation', 'hot', 'week', 'month']
 
-    order = 'desc'
-    sort = 'week'
-    tagged = 'c++'
+    stack = 'ru.' if stack == 'ru' else ''
 
-    query += f'&order={order}&sort={sort}&tagged={tagged}&site=stackoverflow'
+    query += f'&sort={sort_type}&tagged={tags}&site={stack}stackoverflow'
 
     response = requests.get(query)
     raw_json = response.text
